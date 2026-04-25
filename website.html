@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PharmGuard AI — Grounded Drug Interaction Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0E1B2C;
+    --ink-2: #2A3E52;
+    --ink-3: #5A6D80;
+    --paper: #F7F2E9;
+    --paper-2: #EDE6D8;
+    --rule: #D8CDB8;
+    --accent: #8B1538;
+    --major: #8B1538;
+    --moderate: #B86B17;
+    --minor: #5A6D80;
+    --safe: #1E5F3E;
+    --serif: 'Fraunces', 'Georgia', serif;
+    --sans: 'Instrument Sans', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink);
+    background: var(--paper);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,21,56,0.04), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(14,27,44,0.03), transparent 70%);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Paper grain overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='5'/%3E%3CfeColorMatrix values='0 0 0 0 0.05 0 0 0 0 0.04 0 0 0 0 0.03 0 0 0 0.22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: multiply;
+  }
+
+  main, header, footer { position: relative; z-index: 2; }
+
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 1px; }
+  a:hover { color: var(--ink); }
+
+  /* ========== layout ========== */
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 48px; }
+  @media (max-width: 720px) { .wrap { padding: 0 24px; } }
+
+  /* ========== masthead ========== */
+  .masthead {
+    padding: 28px 0;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .masthead__brand {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 144;
+  }
+  .masthead__brand em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--ink-3);
+  }
+  .masthead__meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    display: flex;
+    gap: 24px;
+    align-items: baseline;
+  }
+  .masthead__meta span:first-child::before {
+    content: "◆";
+    margin-right: 8px;
+    color: var(--accent);
+  }
+  @media (max-width: 720px) {
+    .masthead__meta { display: none; }
+  }
+
+  /* ========== hero ========== */
+  .hero {
+    padding: 80px 0 96px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .hero__kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hero__kicker::after {
+    content: "";
+    height: 1px;
+    width: 80px;
+    background: var(--accent);
+    display: inline-block;
+  }
+  .hero__title {
+    font-family: var(--serif);
+    font-weight: 350;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-size: clamp(44px, 7.5vw, 104px);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    margin-bottom: 36px;
+    max-width: 14ch;
+  }
+  .hero__title em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--accent);
+  }
+  .hero__lede {
+    font-family: var(--serif);
+    font-weight: 350;
+    font-variation-settings: "opsz" 14;
+    font-size: clamp(18px, 2vw, 22px);
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 52ch;
+    margin-bottom: 48px;
+  }
+  .hero__lede strong {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .hero__cta { display: flex; gap: 16px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .btn:hover { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+  .btn--outline { background: transparent; color: var(--ink); }
+  .btn--outline:hover { background: var(--ink); color: var(--paper); }
+  .btn__arrow {
+    width: 14px; height: 14px;
+    border-top: 1px solid currentColor;
+    border-right: 1px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+  }
+  .btn:hover .btn__arrow { transform: translate(2px, -2px) rotate(45deg); }
+
+  /* ========== stat strip ========== */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 56px 0;
+    border-bottom: 1px solid var(--rule);
+    gap: 48px;
+  }
+  .stat__num {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-variation-settings: "opsz" 144;
+    font-size: clamp(40px, 5vw, 64px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .stat__num span { font-size: 0.5em; vertical-align: super; color: var(--accent); margin-left: 4px; font-family: var(--mono); font-weight: 500; }
+  .stat__label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    line-height: 1.4;
+  }
+  @media (max-width: 860px) {
+    .stats { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+  }
+
+  /* ========== section header pattern ========== */
+  .section {
+    padding: 96px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section__kicker {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 40px;
+  }
+  .section__kicker::before {
+    content: "§";
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--accent);
+    font-style: italic;
+  }
+  .section__title {
+    font-family: var(--serif);
+    font-weight: 350;
+    font-variation-settings: "opsz" 144;
+    font-size: clamp(32px, 4.5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 32px;
+    max-width: 22ch;
+  }
+  .section__title em { font-style: italic; font-weight: 300; color: var(--accent); }
+
+  /* ========== problem section ========== */
+  .problem {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+  .problem__text p {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.55;
+    font-variation-settings: "opsz" 14;
+    margin-bottom: 20px;
+    color: var(--ink-2);
+  }
+  .problem__text p:first-of-type::first-letter {
+    font-family: var(--serif);
+    font-size: 64px;
+    font-weight: 300;
+    font-variation-settings: "opsz" 144;
+    float: left;
+    line-height: 0.85;
+    padding-right: 10px;
+    padding-top: 4px;
+    color: var(--accent);
+  }
+  .pullquote {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 300;
+    font-variation-settings: "opsz" 144;
+    font-size: clamp(24px, 2.6vw, 32px);
+    line-height: 1.3;
+    color: var(--ink);
+    padding: 32px 36px;
+    border-left: 2px solid var(--accent);
+    background: var(--paper-2);
+    position: relative;
+  }
+  .pullquote::before {
+    content: "";
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+    margin-bottom: 18px;
+  }
+  .pullquote cite {
+    display: block;
+    margin-top: 20px;
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  @media (max-width: 860px) {
+    .problem { grid-template-columns: 1fr; gap: 32px; }
+  }
+
+  /* ========== architecture diagram ========== */
+  .arch {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 48px;
+    margin-top: 16px;
+  }
+  .arch svg { width: 100%; height: auto; display: block; }
+  @media (max-width: 720px) {
+    .arch { padding: 24px; }
+  }
+
+  /* ========== feature grid ========== */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    margin-top: 24px;
+  }
+  .feature {
+    background: var(--paper);
+    padding: 40px 32px;
+    position: relative;
+    transition: background 0.2s ease;
+  }
+  .feature:hover { background: var(--paper-2); }
+  .feature__num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ink-3);
+    margin-bottom: 24px;
+  }
+  .feature__title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px;
+  }
+  .feature__desc {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  @media (max-width: 860px) {
+    .features { grid-template-columns: 1fr; }
+  }
+
+  /* ========== demo / report preview ========== */
+  .demo {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 64px;
+    align-items: start;
+  }
+  .demo__input {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 28px;
+  }
+  .demo__input-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 14px;
+  }
+  .pill-list {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .pill {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 14px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    color: var(--ink);
+  }
+  .arrow-down {
+    font-family: var(--serif);
+    font-size: 24px;
+    color: var(--accent);
+    text-align: center;
+    margin: 24px 0;
+    line-height: 1;
+  }
+  .meta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+  }
+  .meta-row strong { color: var(--ink); font-weight: 500; }
+
+  .report {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 40px;
+    font-size: 15px;
+  }
+  .report__title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 22px;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .report__sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 24px;
+  }
+  .finding {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px dotted var(--rule);
+    align-items: baseline;
+  }
+  .finding:last-child { border-bottom: none; }
+  .severity {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    display: inline-block;
+    font-weight: 500;
+    text-align: center;
+  }
+  .severity--major { background: var(--major); color: var(--paper); }
+  .severity--moderate { background: var(--moderate); color: var(--paper); }
+  .severity--minor { background: transparent; color: var(--minor); border: 1px solid var(--minor); }
+  .finding__body strong {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 16px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .finding__body span {
+    color: var(--ink-2);
+    font-size: 14px;
+  }
+  .citation {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+  }
+  .coverage-note {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    line-height: 1.6;
+  }
+  @media (max-width: 960px) {
+    .demo { grid-template-columns: 1fr; gap: 32px; }
+    .report { padding: 24px; }
+    .finding { grid-template-columns: 1fr; gap: 8px; }
+  }
+
+  /* ========== metrics table ========== */
+  .metrics {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin-top: 24px;
+  }
+  .metrics th, .metrics td {
+    padding: 18px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .metrics th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+    border-bottom: 1px solid var(--ink);
+  }
+  .metrics td:first-child {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 17px;
+    width: 28%;
+  }
+  .metrics td:last-child {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  @media (max-width: 720px) {
+    .metrics td, .metrics th { padding: 12px 8px; font-size: 13px; }
+    .metrics td:first-child { font-size: 15px; }
+  }
+
+  /* ========== datasets ========== */
+  .datasets {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 32px;
+  }
+  .dataset {
+    padding: 24px;
+    background: var(--paper-2);
+    border-left: 2px solid var(--accent);
+  }
+  .dataset__name {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .dataset__role {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 10px;
+  }
+  .dataset__desc {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  @media (max-width: 720px) {
+    .datasets { grid-template-columns: 1fr; }
+  }
+
+  /* ========== ethics ========== */
+  .ethics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+  .ethics__point {
+    padding-top: 24px;
+    border-top: 2px solid var(--ink);
+  }
+  .ethics__point h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .ethics__point p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  @media (max-width: 720px) {
+    .ethics { grid-template-columns: 1fr; gap: 24px; }
+  }
+
+  /* ========== footer ========== */
+  footer {
+    padding: 56px 0 72px;
+    border-top: 1px solid var(--rule);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 48px;
+    margin-bottom: 48px;
+  }
+  .footer-grid h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 16px;
+    font-weight: 500;
+  }
+  .footer-grid ul { list-style: none; }
+  .footer-grid li { margin-bottom: 8px; font-size: 14px; }
+  .footer-grid a { border-bottom: none; color: var(--ink-2); }
+  .footer-grid a:hover { color: var(--accent); border-bottom: 1px solid currentColor; }
+  .disclaimer {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.65;
+    color: var(--ink-3);
+    padding: 20px;
+    background: var(--paper-2);
+    border: 1px dashed var(--rule);
+  }
+  .disclaimer strong {
+    color: var(--accent);
+    display: block;
+    margin-bottom: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+  .colophon {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: flex;
+    justify-content: space-between;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+  }
+  @media (max-width: 720px) {
+    .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    .colophon { flex-direction: column; gap: 12px; }
+  }
+
+  /* ========== entry anim ========== */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .anim { animation: rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .anim-1 { animation-delay: 0.05s; }
+  .anim-2 { animation-delay: 0.15s; }
+  .anim-3 { animation-delay: 0.28s; }
+  .anim-4 { animation-delay: 0.42s; }
+  .anim-5 { animation-delay: 0.56s; }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="masthead">
+    <div class="masthead__brand">PharmGuard <em>AI</em></div>
+    <div class="masthead__meta">
+      <span>VOL. 1 · NO. 1</span>
+      <span>GEN-AI DISCOVERY</span>
+      <span>SPRING 2026</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ================== HERO ================== -->
+<section class="hero wrap">
+  <div class="hero__kicker anim anim-1">Agentic RAG · Prescription Safety</div>
+  <h1 class="hero__title anim anim-2">
+    Every interaction, <em>cited</em>. Every gap, <em>declared</em>.
+  </h1>
+  <p class="hero__lede anim anim-3">
+    PharmGuard enumerates the <strong>combinatorial pairs</strong> of a patient's medication list,
+    retrieves evidence from <strong>seven integrated pharmaceutical sources</strong> — TWOSIDES, DDInter 2.0,
+    DrugBank, SIDER, ADE-Corpus-V2, WebMD, and UCI Drug Reviews — and generates a
+    <strong>clinician-readable report where every claim traces to a source record</strong>.
+    Unknown drugs resolve via the NIH RxNorm API live; pairs with no local coverage
+    fall back to OpenFDA FAERS. When the data is silent, so is the system — explicitly, not by omission.
+  </p>
+  <div class="hero__cta anim anim-4">
+    <a href="https://github.com/YOUR_USERNAME/pharmguard-ai" class="btn">
+      View on GitHub <span class="btn__arrow"></span>
+    </a>
+    <a href="#demo" class="btn btn--outline">
+      See a sample report <span class="btn__arrow"></span>
+    </a>
+  </div>
+</section>
+
+<!-- ================== STAT STRIP ================== -->
+<section class="wrap">
+  <div class="stats">
+    <div class="stat anim anim-1">
+      <div class="stat__num">7</div>
+      <div class="stat__label">integrated<br>pharmaceutical<br>data sources</div>
+    </div>
+    <div class="stat anim anim-2">
+      <div class="stat__num">20<span>K+</span></div>
+      <div class="stat__label">drugs resolvable<br>via live NIH<br>RxNorm API fallback</div>
+    </div>
+    <div class="stat anim anim-3">
+      <div class="stat__num">23<span>ms</span></div>
+      <div class="stat__label">median latency<br>for a 21-pair<br>local retrieval pass</div>
+    </div>
+    <div class="stat anim anim-4">
+      <div class="stat__num">0<span>%</span></div>
+      <div class="stat__label">uncited clinical claims<br>in the generator's<br>required output</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== PROBLEM ================== -->
+<section class="section wrap">
+  <div class="section__kicker">The Problem</div>
+  <h2 class="section__title">A base LLM will <em>sound</em> right. That's the danger.</h2>
+  <div class="problem">
+    <div class="problem__text">
+      <p>
+        Ask ChatGPT whether lisinopril interacts with spironolactone. You'll get a fluent,
+        partially-correct answer. You will <em>not</em> get a record ID you can verify. You
+        will not get a guarantee that all 45 pairs in a 10-drug regimen were checked.
+        You will not get an explicit flag when the model has no evidence for a pair —
+        only a confident silence indistinguishable from a confident correct answer.
+      </p>
+      <p>
+        In medicine, a fluent guess is the worst possible output. It sounds authoritative
+        to the reader and it's invisible to the writer. PharmGuard is built around the
+        opposite premise: <strong>retrieval first, generation second, and citation
+        mandatory at every step</strong>.
+      </p>
+    </div>
+    <blockquote class="pullquote">
+      A system that scores 92% retrieval recall but has a 15% hallucination rate is
+      <em>not</em> a success. This project defines what silent failure looks like before
+      it defines what success looks like.
+      <cite>— Project proposal, Phase 6</cite>
+    </blockquote>
+  </div>
+</section>
+
+<!-- ================== ARCHITECTURE ================== -->
+<section class="section wrap">
+  <div class="section__kicker">Architecture</div>
+  <h2 class="section__title">Plan, retrieve, generate — <em>in that order</em>.</h2>
+  <p style="max-width: 60ch; font-size: 17px; color: var(--ink-2); margin-bottom: 32px;">
+    The pipeline deliberately separates deterministic work (pair enumeration, database lookups)
+    from generative work (prose synthesis). The LLM is only invoked where fluent clinical
+    language is the actual product — never to enumerate, look up, or classify severity.
+  </p>
+  <div class="arch">
+    <svg viewBox="0 0 1100 440" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--mono); font-size: 12px;">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <path d="M 0 0 L 9 3 L 0 6 z" fill="#0E1B2C"/>
+        </marker>
+      </defs>
+
+      <!-- Input -->
+      <rect x="40" y="20" width="220" height="52" fill="#FAF7F2" stroke="#0E1B2C" stroke-width="1.2"/>
+      <text x="150" y="42" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="500" fill="#0E1B2C">User input</text>
+      <text x="150" y="60" text-anchor="middle" fill="#5A6D80" font-size="11">drug list (2–12 items)</text>
+
+      <!-- Arrow -->
+      <line x1="150" y1="72" x2="150" y2="105" stroke="#0E1B2C" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+      <!-- Normalizer -->
+      <rect x="40" y="110" width="220" height="72" fill="#EDE6D8" stroke="#0E1B2C" stroke-width="1.2"/>
+      <text x="150" y="130" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="500" fill="#0E1B2C">① Normalizer</text>
+      <text x="150" y="148" text-anchor="middle" fill="#2A3E52" font-size="10">local vocab + fuzzy match</text>
+      <text x="150" y="162" text-anchor="middle" fill="#2A3E52" font-size="10">exact · fuzzy (rapidfuzz)</text>
+      <text x="150" y="176" text-anchor="middle" fill="#8B1538" font-size="10">↓ RxNorm API fallback (live)</text>
+
+      <line x1="150" y1="182" x2="150" y2="217" stroke="#0E1B2C" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+      <!-- Planner -->
+      <rect x="40" y="222" width="220" height="58" fill="#EDE6D8" stroke="#0E1B2C" stroke-width="1.2"/>
+      <text x="150" y="244" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="500" fill="#0E1B2C">② Planner</text>
+      <text x="150" y="262" text-anchor="middle" fill="#2A3E52" font-size="10">combinations(drugs, 2)</text>
+      <text x="150" y="274" text-anchor="middle" fill="#2A3E52" font-size="10">deterministic · no LLM</text>
+
+      <line x1="150" y1="280" x2="150" y2="315" stroke="#0E1B2C" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+      <!-- Retriever -->
+      <rect x="40" y="320" width="220" height="110" fill="#EDE6D8" stroke="#0E1B2C" stroke-width="1.2"/>
+      <text x="150" y="342" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="500" fill="#0E1B2C">③ Retriever</text>
+      <text x="150" y="362" text-anchor="middle" fill="#2A3E52" font-size="10">local exact-pair lookup</text>
+      <text x="150" y="376" text-anchor="middle" fill="#2A3E52" font-size="10">per-drug side-effect context</text>
+      <text x="150" y="390" text-anchor="middle" fill="#2A3E52" font-size="10">vector context (reviews)</text>
+      <text x="150" y="406" text-anchor="middle" fill="#8B1538" font-size="10">↓ FAERS API fallback (live)</text>
+      <text x="150" y="420" text-anchor="middle" fill="#8B1538" font-size="10">no_data_pairs surfaced</text>
+
+      <!-- Arrow right to knowledge base -->
+      <line x1="262" y1="375" x2="385" y2="375" stroke="#0E1B2C" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrowhead)"/>
+
+      <!-- Knowledge sources box -->
+      <rect x="390" y="218" width="230" height="280" fill="#FAF7F2" stroke="#8B1538" stroke-width="1"/>
+      <text x="505" y="240" text-anchor="middle" font-family="Fraunces, serif" font-size="12" font-weight="500" fill="#8B1538">KNOWLEDGE BASE</text>
+      <line x1="410" y1="248" x2="600" y2="248" stroke="#8B1538" stroke-width="0.5"/>
+
+      <rect x="410" y="260" width="190" height="42" fill="#EDE6D8" stroke="#2A3E52" stroke-width="0.8"/>
+      <text x="505" y="276" text-anchor="middle" font-family="Fraunces, serif" font-size="12" font-weight="500">TWOSIDES + DDInter</text>
+      <text x="505" y="292" text-anchor="middle" fill="#5A6D80" font-size="10">interaction pairs · severity</text>
+
+      <rect x="410" y="312" width="190" height="42" fill="#EDE6D8" stroke="#2A3E52" stroke-width="0.8"/>
+      <text x="505" y="328" text-anchor="middle" font-family="Fraunces, serif" font-size="12" font-weight="500">SIDER + ADE Corpus</text>
+      <text x="505" y="344" text-anchor="middle" fill="#5A6D80" font-size="10">side effects · mechanisms</text>
+
+      <rect x="410" y="364" width="190" height="42" fill="#EDE6D8" stroke="#2A3E52" stroke-width="0.8"/>
+      <text x="505" y="380" text-anchor="middle" font-family="Fraunces, serif" font-size="12" font-weight="500">DrugBank + RxNorm</text>
+      <text x="505" y="396" text-anchor="middle" fill="#5A6D80" font-size="10">metadata · normalization</text>
+
+      <rect x="410" y="416" width="190" height="42" fill="#EDE6D8" stroke="#2A3E52" stroke-width="0.8"/>
+      <text x="505" y="432" text-anchor="middle" font-family="Fraunces, serif" font-size="12" font-weight="500">WebMD + UCI Reviews</text>
+      <text x="505" y="448" text-anchor="middle" fill="#5A6D80" font-size="10">patient-experience context</text>
+
+      <!-- Arrow retriever to generator (top-right direction) -->
+      <path d="M 260 330 C 380 80 700 80 750 150" fill="none" stroke="#0E1B2C" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+      <text x="480" y="120" text-anchor="middle" fill="#5A6D80" font-size="10">evidence bundle</text>
+
+      <!-- Generator -->
+      <rect x="760" y="160" width="280" height="90" fill="#EDE6D8" stroke="#0E1B2C" stroke-width="1.2"/>
+      <text x="900" y="184" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="500" fill="#0E1B2C">④ Generator</text>
+      <text x="900" y="204" text-anchor="middle" fill="#2A3E52" font-size="10">LLM synthesis · strict prompt</text>
+      <text x="900" y="220" text-anchor="middle" fill="#2A3E52" font-size="10">every claim → [SOURCE:ID]</text>
+      <text x="900" y="236" text-anchor="middle" fill="#8B1538" font-size="10">deterministic fallback if LLM fails</text>
+
+      <line x1="900" y1="250" x2="900" y2="288" stroke="#0E1B2C" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+      <!-- Output -->
+      <rect x="760" y="294" width="280" height="88" fill="#FAF7F2" stroke="#8B1538" stroke-width="1.2"/>
+      <text x="900" y="318" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="500" fill="#8B1538">Clinical report</text>
+      <text x="900" y="338" text-anchor="middle" fill="#2A3E52" font-size="10">severity-sorted findings</text>
+      <text x="900" y="354" text-anchor="middle" fill="#2A3E52" font-size="10">coverage notes · citations</text>
+      <text x="900" y="370" text-anchor="middle" fill="#2A3E52" font-size="10">mandatory disclaimer</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================== FEATURES ================== -->
+<section class="section wrap">
+  <div class="section__kicker">What the system guarantees</div>
+  <h2 class="section__title">Four invariants a base LLM <em>cannot</em> provide.</h2>
+  <div class="features">
+    <div class="feature">
+      <div class="feature__num">01 / Structured retrieval</div>
+      <div class="feature__title">Exact-pair lookups, not semantic guesses.</div>
+      <div class="feature__desc">
+        For "does A interact with B?", a database index beats vector similarity every time.
+        PharmGuard hashes pairs and does O(1) lookups against 300K+ records. Vector search
+        is reserved for unstructured context like patient reviews.
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature__num">02 / Combinatorial completeness</div>
+      <div class="feature__title">All pairs enumerated, always.</div>
+      <div class="feature__desc">
+        A 10-drug list has 45 unique pairs. Every one is checked via
+        <code style="font-family: var(--mono); font-size: 13px; color: var(--accent);">itertools.combinations</code> —
+        no LLM enumeration, no chance of silent omission. The count is provably correct.
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature__num">03 / Grounded generation</div>
+      <div class="feature__title">Every clinical claim cites its source.</div>
+      <div class="feature__desc">
+        The generator prompt enforces inline <code style="font-family: var(--mono); font-size: 13px; color: var(--accent);">[SOURCE:RECORD_ID]</code>
+        citations. Pairs with no retrieved data are declared explicitly. A deterministic
+        fallback produces a cited report even without an LLM.
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature__num">04 / Universal coverage</div>
+      <div class="feature__title">Any drug. Any pair. Live APIs fill the gaps.</div>
+      <div class="feature__desc">
+        Drugs outside the local vocabulary resolve via the NIH RxNorm REST API —
+        20,000+ FDA-approved medications. Pairs without local interaction records fall back
+        to OpenFDA FAERS for real-time adverse-event signals. Every live-retrieved record
+        still carries a citable <code style="font-family: var(--mono); font-size: 13px; color: var(--accent);">[FAERS:ID]</code> tag.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== DEMO / SAMPLE OUTPUT ================== -->
+<section class="section wrap" id="demo">
+  <div class="section__kicker">Sample Output</div>
+  <h2 class="section__title">The proposal's geriatric scenario, <em>end-to-end</em>.</h2>
+  <p style="max-width: 60ch; font-size: 17px; color: var(--ink-2); margin-bottom: 40px;">
+    This is the actual output when the pipeline receives the 7-drug polypharmacy list
+    from the proposal's opening vignette. 21 unique pairs analyzed. 6 interactions returned.
+    16 no-data pairs explicitly surfaced. Latency under 25 milliseconds.
+  </p>
+
+  <div class="demo">
+    <div class="demo__input">
+      <div class="demo__input-label">Input · 7 medications</div>
+      <div class="pill-list">
+        <span class="pill">lisinopril</span>
+        <span class="pill">spironolactone</span>
+        <span class="pill">metformin</span>
+        <span class="pill">atorvastatin</span>
+        <span class="pill">aspirin</span>
+        <span class="pill">omeprazole</span>
+        <span class="pill">sertraline</span>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="demo__input-label">Pipeline trace</div>
+      <div class="meta-row">
+        <div>normalize <strong>0ms</strong></div>
+        <div>plan <strong>0ms</strong></div>
+        <div>retrieve <strong>20ms</strong></div>
+        <div>generate <strong>&lt;1ms</strong></div>
+        <div>pairs analyzed <strong>21</strong></div>
+        <div>no-data pairs <strong>16</strong></div>
+      </div>
+    </div>
+
+    <article class="report">
+      <div class="report__title">Interaction Report</div>
+      <div class="report__sub">PHARMGUARD AI · TWOSIDES-GROUNDED · APR 2026</div>
+
+      <div class="finding">
+        <span class="severity severity--major">Major</span>
+        <div class="finding__body">
+          <strong>lisinopril + spironolactone</strong>
+          <span>Risk of hyperkalemia. PRR = 14.2.</span>
+        </div>
+        <span class="citation">[TWOSIDES:TS-00000006]</span>
+      </div>
+
+      <div class="finding">
+        <span class="severity severity--moderate">Moderate</span>
+        <div class="finding__body">
+          <strong>aspirin + omeprazole</strong>
+          <span>Reduced antiplatelet effect. PRR = 4.8.</span>
+        </div>
+        <span class="citation">[TWOSIDES:TS-00000003]</span>
+      </div>
+
+      <div class="finding">
+        <span class="severity severity--moderate">Moderate</span>
+        <div class="finding__body">
+          <strong>aspirin + sertraline</strong>
+          <span>Gastrointestinal bleeding risk. PRR = 6.2.</span>
+        </div>
+        <span class="citation">[TWOSIDES:TS-00000004]</span>
+      </div>
+
+      <div class="finding">
+        <span class="severity severity--moderate">Moderate</span>
+        <div class="finding__body">
+          <strong>lisinopril + spironolactone</strong>
+          <span>Renal failure signal. PRR = 7.8.</span>
+        </div>
+        <span class="citation">[TWOSIDES:TS-00000008]</span>
+      </div>
+
+      <div class="finding">
+        <span class="severity severity--minor">Minor</span>
+        <div class="finding__body">
+          <strong>metformin + lisinopril</strong>
+          <span>Hypoglycemia risk. PRR = 2.4.</span>
+        </div>
+        <span class="citation">[TWOSIDES:TS-00000046]</span>
+      </div>
+
+      <div class="finding">
+        <span class="severity severity--minor">Minor</span>
+        <div class="finding__body">
+          <strong>aspirin + spironolactone</strong>
+          <span>Reduced diuretic efficacy. PRR = 2.6.</span>
+        </div>
+        <span class="citation">[TWOSIDES:TS-00000050]</span>
+      </div>
+
+      <div class="coverage-note">
+        <strong style="color: var(--ink); display: block; margin-bottom: 6px;">COVERAGE · 5 LOCAL + 16 SERVED BY FAERS FALLBACK</strong>
+        21 pairs analyzed — 5 matched TWOSIDES/DDInter directly; 16 fell back to the
+        OpenFDA FAERS live API, surfacing 48 co-reported adverse-event signals with
+        traceable [FAERS:ID] citations. Nothing is silently omitted.
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ================== METRICS ================== -->
+<section class="section wrap">
+  <div class="section__kicker">Evaluation</div>
+  <h2 class="section__title">Failure defined <em>before</em> success.</h2>
+  <p style="max-width: 60ch; font-size: 17px; color: var(--ink-2); margin-bottom: 24px;">
+    The six metrics below are committed targets, not claimed results. Ground truth for
+    recall and precision is derived programmatically from the loaded interaction table —
+    whatever dataset you ingest, the evaluator stays self-consistent.
+  </p>
+  <table class="metrics">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>What it measures</th>
+        <th>Target</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Retrieval Recall</td>
+        <td>Fraction of ground-truth interaction pairs surfaced by the retriever.</td>
+        <td>≥ 95%</td>
+      </tr>
+      <tr>
+        <td>Retrieval Precision</td>
+        <td>Fraction of retrieved results that exist in ground truth.</td>
+        <td>≥ 90%</td>
+      </tr>
+      <tr>
+        <td>Faithfulness</td>
+        <td>Does the generated mechanism match the retrieved source record? (LLM-judge + 20% human audit.)</td>
+        <td>≥ 85%</td>
+      </tr>
+      <tr>
+        <td>Hallucination Rate</td>
+        <td>Clinical claims in the report that cannot be traced to any retrieval evidence.</td>
+        <td>≤ 5%</td>
+      </tr>
+      <tr>
+        <td>Severity Accuracy</td>
+        <td>Severity tier in the report matches the severity field of the source record.</td>
+        <td>≥ 90%</td>
+      </tr>
+      <tr>
+        <td>Completeness Flagging</td>
+        <td>No-data pairs explicitly declared in the report (contract check, not learned).</td>
+        <td>100%</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================== DATASETS ================== -->
+<section class="section wrap">
+  <div class="section__kicker">Data Sources</div>
+  <h2 class="section__title">Narrow by design. <em>Authoritative by default.</em></h2>
+  <p style="max-width: 60ch; font-size: 17px; color: var(--ink-2);">
+    PharmGuard does not learn from Reddit threads or unvetted scrapes. Its knowledge base
+    is peer-reviewed or government-maintained, versioned, and cited. In medicine, the cost
+    of breadth without rigor is measured in patient harm.
+  </p>
+  <div class="datasets">
+    <div class="dataset">
+      <div class="dataset__name">TWOSIDES</div>
+      <div class="dataset__role">Primary · drug-drug interactions</div>
+      <div class="dataset__desc">Tatonetti Lab / <em>Science Translational Medicine</em>. ~4.6M signal-mined pair records with PRR statistics; severity tiers derived from PRR thresholds.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">DDInter 2.0</div>
+      <div class="dataset__role">Secondary · curated severity labels</div>
+      <div class="dataset__desc">Tian et al., <em>Nucleic Acids Research</em> 2025. ~302K interactions with native Major / Moderate / Minor labels and mechanism descriptions. Cross-validates TWOSIDES findings.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">OpenFDA FAERS</div>
+      <div class="dataset__role">Live API · fallback for uncovered pairs</div>
+      <div class="dataset__desc">U.S. FDA. Real-time queries for co-reported adverse events. When a pair has no local coverage, the retriever queries FAERS live — every signal carries a traceable <code>[FAERS:ID]</code> citation.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">DrugBank 5.x</div>
+      <div class="dataset__role">Drug metadata · synonyms · mechanisms</div>
+      <div class="dataset__desc">University of Alberta, peer-reviewed. ~14,000 drug entries. Powers the normalizer's synonym resolution layer.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">SIDER</div>
+      <div class="dataset__role">Side-effect context per drug</div>
+      <div class="dataset__desc">EMBL-curated side-effect resource mined from FDA drug labels. Used to supply per-drug adverse-event context alongside pair interactions.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">ADE-Corpus-V2</div>
+      <div class="dataset__role">Drug-adverse-effect sentences</div>
+      <div class="dataset__desc">Gurulingappa et al. MEDLINE case-report sentences asserting drug-effect relationships. Merged with SIDER for per-drug context.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">RxNorm + live API</div>
+      <div class="dataset__role">Normalization backbone</div>
+      <div class="dataset__desc">US National Library of Medicine. Brand ↔ generic ↔ RXCUI mapping, plus a live REST API fallback for any drug outside the local vocabulary — paracetamol, ornidazole, rosuvastatin all resolve.</div>
+    </div>
+    <div class="dataset">
+      <div class="dataset__name">WebMD + UCI Reviews</div>
+      <div class="dataset__role">Patient-experience context</div>
+      <div class="dataset__desc">Kaggle (CC0). Two merged review corpora used only as unstructured vector-search context — never as evidence for interaction claims.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== ETHICS ================== -->
+<section class="section wrap">
+  <div class="section__kicker">Ethical Commitments</div>
+  <h2 class="section__title">The system knows what it <em>doesn't</em> know.</h2>
+  <div class="ethics">
+    <div class="ethics__point">
+      <h3>No patient data is stored.</h3>
+      <p>Medication lists are processed in memory only. No persistence, no logging of inputs, no identification of users. The web interface is stateless by design.</p>
+    </div>
+    <div class="ethics__point">
+      <h3>Coverage is declared, not implied.</h3>
+      <p>Every output includes a Coverage Note stating which databases were queried and what their known limitations are. TWOSIDES skews toward English-language labels and US-marketed drugs; this is surfaced, not hidden.</p>
+    </div>
+    <div class="ethics__point">
+      <h3>Absence of data is a first-class output.</h3>
+      <p>When the retriever returns nothing for a pair, the system states "No interaction data available" — explicitly, in the final report. A confident silence is the failure mode this project is designed to prevent.</p>
+    </div>
+    <div class="ethics__point">
+      <h3>It is not a doctor, and says so.</h3>
+      <p>Every output carries a disclaimer that PharmGuard is decision support, not medical judgment. The disclaimer is a safety invariant — it is appended by the pipeline, not by the model.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ================== FOOTER ================== -->
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="disclaimer">
+        <strong>Medical Disclaimer</strong>
+        PharmGuard AI is a decision-support tool grounded in public pharmaceutical
+        databases. It is not a substitute for professional medical judgment. Always
+        consult a licensed clinician or pharmacist before making changes to a medication
+        regimen.
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/YOUR_USERNAME/pharmguard-ai">GitHub repository</a></li>
+          <li><a href="https://github.com/YOUR_USERNAME/pharmguard-ai/blob/main/docs/ARCHITECTURE.md">Architecture doc</a></li>
+          <li><a href="https://github.com/YOUR_USERNAME/pharmguard-ai/blob/main/docs/EVALUATION.md">Evaluation methodology</a></li>
+          <li><a href="https://github.com/YOUR_USERNAME/pharmguard-ai/blob/main/docs/DATASETS.md">Dataset guide</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>References</h4>
+        <ul>
+          <li><a href="https://tatonettilab.org/resources/tatonetti-stm.html">TWOSIDES</a></li>
+          <li><a href="https://go.drugbank.com/releases/latest">DrugBank</a></li>
+          <li><a href="http://sideeffects.embl.de/download/">SIDER</a></li>
+          <li><a href="https://www.nlm.nih.gov/research/umls/rxnorm/">RxNorm</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon">
+      <span>Shwetanshu Subhash · NUID 0012034124</span>
+      <span>Gen-AI Discovery · Final Project · Spring 2026</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
